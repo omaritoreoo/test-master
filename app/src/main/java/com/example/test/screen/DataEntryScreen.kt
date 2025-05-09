@@ -2,6 +2,7 @@ package com.example.test.screen
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -19,6 +21,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.test.viewmodel.DataEntryViewModel
 import com.example.test.data.DataEntry
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import android.app.DatePickerDialog
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
@@ -160,6 +166,24 @@ fun DataEntryForm(
     onClose: () -> Unit,
     navController: NavHostController
 ) {
+    val context = LocalContext.current
+    val dateFormatter = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    val calendar = remember { Calendar.getInstance() }
+
+    fun showDatePicker(field: String) {
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                calendar.set(year, month, dayOfMonth)
+                val selectedDate = dateFormatter.format(calendar.time)
+                onEntryChange(field, selectedDate)
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
     Column(
         Modifier
             .width(450.dp)
@@ -174,8 +198,6 @@ fun DataEntryForm(
             "problem" to "Description Problem",
             "target" to "Target",
             "features" to "Features",
-            "startDate" to "Start Date",
-            "endDate" to "End Date",
             "status" to "Status"
         )
 
@@ -189,7 +211,38 @@ fun DataEntryForm(
             Spacer(Modifier.height(4.dp))
         }
 
+        // Start Date
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showDatePicker("startDate") }
+        ) {
+            OutlinedTextField(
+                value = entry.startDate,
+                onValueChange = {},
+                label = { Text("Start Date") },
+                readOnly = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+
+        // End Date
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showDatePicker("endDate") }
+        ) {
+            OutlinedTextField(
+                value = entry.endDate,
+                onValueChange = {},
+                label = { Text("End Date") },
+                readOnly = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         Spacer(Modifier.height(8.dp))
+
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onClose, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
                 Text("Return")

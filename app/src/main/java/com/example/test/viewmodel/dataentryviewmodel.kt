@@ -1,31 +1,46 @@
-package com.example.test.viewmodel
-
 import android.app.Application
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.room.Room
 import com.example.test.data.AppDatabase
 import com.example.test.data.DataEntry
-import com.example.test.data.DataEntryDatabase
 import com.example.test.data.DataEntryRepository
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class DataEntryViewModel(application: Application) : AndroidViewModel(application) {
-    private val db = Room.databaseBuilder(
-        application,
-        AppDatabase::class.java,
-        "entry-db"
-    ).build()
+    private val repository: DataEntryRepository
 
-    private val repo = DataEntryRepository(db.dataEntryDao())
+    val allEntries: StateFlow<List<DataEntry>>
+    var selectedEntry = mutableStateOf<DataEntry?>(null)
 
-    val allEntries = repo.allEntries
+    init {
+        val dao = AppDatabase.getDatabase(application).dataEntryDao()
+        repository = DataEntryRepository(dao)
+        allEntries = repository.allEntries
+            .stateIn(
+                viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                emptyList()
+            )
+    }
 
-    fun insertEntry(entry: DataEntry) {
-        viewModelScope.launch {
-            repo.insert(entry)
-        }
+    fun insertEntry(entry: DataEntry) = viewModelScope.launch {
+        repository.insert(entry)
+    }
+
+    fun updateEntry(entry: DataEntry) = viewModelScope.launch {
+        repository.update(entry)
+    }
+
+    fun deleteEntry(entry: DataEntry) = viewModelScope.launch {
+        repository.delete(entry)
+    }
+
+    fun setSelectedEntry(entry: DataEntry) {
+        selectedEntry.value = entry
     }
 }

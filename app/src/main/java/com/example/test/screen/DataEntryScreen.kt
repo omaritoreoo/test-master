@@ -1,5 +1,6 @@
 package com.example.test.screen
 
+import DataEntryViewModel
 import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.example.test.viewmodel.DataEntryViewModel
 import com.example.test.data.DataEntry
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -32,24 +32,34 @@ fun DataEntryScreen(navController: NavHostController, viewModel: DataEntryViewMo
     val showForm = remember { mutableStateOf(false) }
     val dataList by viewModel.allEntries.collectAsState(initial = emptyList())
     val scrollState = rememberScrollState()
+    val entryState = remember { mutableStateOf(DataEntry()) }
 
     Row(Modifier.fillMaxSize()) {
+        // Form Section: Add/Edit Data
         if (showForm.value) {
-            val entryState = remember { mutableStateOf(DataEntry()) }
             DataEntryForm(
                 entry = entryState.value,
                 onEntryChange = { field, value ->
                     entryState.value = entryState.value.copyField(field, value)
                 },
                 onSave = {
-                    viewModel.insertEntry(entryState.value)
+                    if (entryState.value.id == 0) {
+                        viewModel.insertEntry(entryState.value)
+                    } else {
+                        viewModel.updateEntry(entryState.value)
+                    }
                     showForm.value = false
+                    entryState.value = DataEntry() // Reset entry after save
                 },
-                onClose = { showForm.value = false },
+                onClose = {
+                    showForm.value = false
+                    entryState.value = DataEntry() // Reset entry when closed
+                },
                 navController = navController
             )
         }
 
+        // Data Table Section
         Column(Modifier.weight(1f)) {
             Row(
                 Modifier
@@ -57,7 +67,10 @@ fun DataEntryScreen(navController: NavHostController, viewModel: DataEntryViewMo
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Button(onClick = { showForm.value = true }) {
+                Button(onClick = {
+                    entryState.value = DataEntry() // Reset entry for new data
+                    showForm.value = true
+                }) {
                     Icon(Icons.Default.Add, contentDescription = "Add")
                 }
                 Spacer(Modifier.width(16.dp))
@@ -69,13 +82,18 @@ fun DataEntryScreen(navController: NavHostController, viewModel: DataEntryViewMo
                 )
             }
 
-            HorizontalScrollableTable(dataList)
+            HorizontalScrollableTable(dataList, onEdit = { entry ->
+                entryState.value = entry
+                showForm.value = true
+            }, onDelete = { entry ->
+                viewModel.deleteEntry(entry)
+            })
         }
     }
 }
 
 @Composable
-fun HorizontalScrollableTable(data: List<DataEntry>) {
+fun HorizontalScrollableTable(data: List<DataEntry>, onEdit: (DataEntry) -> Unit, onDelete: (DataEntry) -> Unit) {
     val scrollState = rememberScrollState()
     Column(
         Modifier
@@ -84,7 +102,7 @@ fun HorizontalScrollableTable(data: List<DataEntry>) {
     ) {
         HeaderRow()
         data.forEach { entry ->
-            DataRow(entry)
+            DataRow(entry, onEdit, onDelete)
         }
     }
 }
@@ -103,7 +121,7 @@ fun HeaderRow() {
 }
 
 @Composable
-fun DataRow(entry: DataEntry) {
+fun DataRow(entry: DataEntry, onEdit: (DataEntry) -> Unit, onDelete: (DataEntry) -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
@@ -112,14 +130,11 @@ fun DataRow(entry: DataEntry) {
             entry.id.toString(), entry.problem, entry.target, entry.features,
             entry.startDate, entry.endDate, entry.status
         )
-        row.forEach { cell ->
-            TableCell(cell)
-        }
+        row.forEach { cell -> TableCell(cell) }
         TableCell {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                ActionButton("Edit", Color(0xFF4CAF50))
-                ActionButton("View", Color(0xFF9E9E9E))
-                ActionButton("Delete", Color(0xFFF44336))
+                ActionButton("Edit", Color(0xFF4CAF50)) { onEdit(entry) }
+                ActionButton("Delete", Color(0xFFF44336)) { onDelete(entry) }
             }
         }
     }

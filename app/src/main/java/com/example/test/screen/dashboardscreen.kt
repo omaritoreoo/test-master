@@ -148,9 +148,89 @@ fun DashboardContent() {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        ColoredBox(Color(0xFFFFCDD2)) // Pink
-        ColoredBox(Color(0xFFFFFFB3)) // Yellow
-        ColoredBox(Color(0xFFBBDEFB)) // Blue
+        // Visualisasi Proses Training
+        DashboardSection(
+            title = "Visualisasi Proses Training",
+            color = Color(0xFFFFCDD2) // merah muda
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                DummyChart("Loss")
+                DummyChart("Accuracy")
+            }
+        }
+
+        // Perbandingan Model
+        DashboardSection(
+            title = "Status Training",
+            color = Color(0xFFFFFFB3) // kuning
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ModelBar("Success", 45, Color(0xFF81C784))
+                ModelBar("On-going", 100, Color(0xFFFFB74D))
+                ModelBar("Failed", 65, Color(0xFFE57373))
+            }
+        }
+
+        // Tabel Kosong
+        DashboardSection(
+            title = "Data Training",
+            color = Color(0xFFBBDEFB) // biru muda
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("No data available", color = Color.Gray, modifier = Modifier.align(Alignment.CenterHorizontally))
+            }
+        }
+    }
+}
+
+@Composable
+fun DashboardSection(title: String, color: Color, content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(color)
+            .padding(16.dp)
+    ) {
+        Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+        content()
+    }
+}
+
+@Composable
+fun DummyChart(label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(width = 150.dp, height = 100.dp)
+                .background(Color.White, RoundedCornerShape(8.dp))
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(label)
+    }
+}
+
+@Composable
+fun ModelBar(label: String, percentage: Int, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .width(40.dp)
+                .height((percentage * 1.5).dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(color)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text("$percentage%", fontSize = 12.sp)
+        Text(label, fontSize = 12.sp)
     }
 }
 

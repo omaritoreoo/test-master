@@ -5,10 +5,15 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [DataEntry::class], version = 2, exportSchema = false)
+@Database(
+    entities = [DataEntry::class, Profile::class], // Tambahkan Profile di sini
+    version = 2,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun dataEntryDao(): DataEntryDao
+    abstract fun profileDao(): ProfileDao // Tambahkan DAO-nya
 
     companion object {
         @Volatile
@@ -19,9 +24,8 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "data_entry_database"
-                )
-                    .fallbackToDestructiveMigration() // Hapus DB lama kalau struktur berubah
+                    "app_database"
+                ).fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

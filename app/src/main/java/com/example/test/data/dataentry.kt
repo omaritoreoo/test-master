@@ -3,7 +3,8 @@ package com.example.test.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "dataentry")
+// ✅ DataEntry Entity
+@Entity(tableName = "data_entry")
 data class DataEntry(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val problem: String = "",

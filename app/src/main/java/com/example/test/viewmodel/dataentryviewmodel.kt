@@ -12,24 +12,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class DataEntryViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository: DataEntryRepository
+    private val repository = DataEntryRepository(AppDatabase.getDatabase(application).dataEntryDao())
+    val allEntries: StateFlow<List<DataEntry>> = repository.allEntries
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val allEntries: StateFlow<List<DataEntry>>
     var selectedEntry = mutableStateOf<DataEntry?>(null)
 
-    init {
-        val dao = AppDatabase.getDatabase(application).dataEntryDao()
-        repository = DataEntryRepository(dao)
-        allEntries = repository.allEntries
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                emptyList()
-            )
-    }
-
     fun insertEntry(entry: DataEntry) = viewModelScope.launch {
-        repository.insert(entry)
+        // Simpan entry dan ambil ID yang dihasilkan
+        val generatedId = repository.insert(entry)
+        // Update entry dengan ID yang dihasilkan
+        selectedEntry.value = entry.copy(id = generatedId.toInt())  // Pastikan untuk mengupdate state
     }
 
     fun updateEntry(entry: DataEntry) = viewModelScope.launch {
@@ -43,4 +36,8 @@ class DataEntryViewModel(application: Application) : AndroidViewModel(applicatio
     fun setSelectedEntry(entry: DataEntry) {
         selectedEntry.value = entry
     }
+    suspend fun insertEntryAndGetId(entry: DataEntry): Long {
+        return repository.insert(entry) // repository panggil DAO.insert, dapatkan rowId
+    }
+
 }

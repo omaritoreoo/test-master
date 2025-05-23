@@ -5,10 +5,10 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.test.screen.ChildEntryScreen
 import com.example.test.screen.DashboardMainScreen
-import com.example.test.screens.SignUpScreen
+import com.example.test.screen.DataEntryScreen // Pastikan ini diimport
 import com.example.test.screens.LoginScreen
+import com.example.test.screens.SignUpScreen
 
 @Composable
 fun AppNavigation() {
@@ -18,23 +18,7 @@ fun AppNavigation() {
         composable("login") { LoginScreen(navController) }
         composable("signup") { SignUpScreen(navController) }
         composable("dashboard_main") { DashboardMainScreen() }
+        composable("data_entry") { DataEntryScreen(navController = navController) } // Rute untuk DataEntryScreen
 
-        // For ChildEntryScreen, you need to pass the parentId, onAddChild, onDeleteChild, and childDataList.
-        composable("data_child/{parentId}") { backStackEntry ->
-            val parentId = backStackEntry.arguments?.getString("parentId") ?: ""
-
-            // Dummy data for demonstration, replace with actual logic for childDataList and methods
-            val childDataList = listOf<List<String>>() // Replace with actual child data
-            val onAddChild: (List<String>) -> Unit = { /* Add logic for adding child */ }
-            val onDeleteChild: (String) -> Unit = { /* Add logic for deleting child */ }
-
-            ChildEntryScreen(
-                navController = navController,
-                parentId = parentId,
-                onAddChild = onAddChild,
-                onDeleteChild = onDeleteChild,
-                childDataList = childDataList
-            )
-        }
     }
 }

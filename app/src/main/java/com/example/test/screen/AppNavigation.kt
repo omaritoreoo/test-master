@@ -6,7 +6,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.test.screen.DashboardMainScreen
-import com.example.test.screen.DataEntryScreen // Pastikan ini diimport
+import com.example.test.screen.DataEntryScreen
+import com.example.test.screen.LandingPage
 import com.example.test.screens.LoginScreen
 import com.example.test.screens.SignUpScreen
 
@@ -17,8 +18,11 @@ fun AppNavigation() {
     NavHost(navController = navController, startDestination = "login") {
         composable("login") { LoginScreen(navController) }
         composable("signup") { SignUpScreen(navController) }
+        composable("landing") {
+            LandingPage(navToDashboard = {
+                navController.navigate("dashboard_main")
+            })
+        }
         composable("dashboard_main") { DashboardMainScreen() }
-        composable("data_entry") { DataEntryScreen(navController = navController) } // Rute untuk DataEntryScreen
-
     }
 }

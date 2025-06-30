@@ -7,14 +7,16 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
@@ -34,32 +36,44 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.example.test.data.Profile
 import com.example.test.viewmodel.ProfileViewModel
+import com.example.test.viewmodel.UserViewModel
 
 @Composable
-fun ProfileScreen(navController: NavHostController, viewModel: ProfileViewModel = viewModel()) {
+fun ProfileScreen(
+    navController: NavHostController,
+    profileViewModel: ProfileViewModel = viewModel(),
+    userViewModel: UserViewModel = viewModel()
+) {
     val context = LocalContext.current
-    val profile by viewModel.profile.observeAsState()
 
-    var name by remember { mutableStateOf("") }
-    var dob by remember { mutableStateOf("") }
-    var region by remember { mutableStateOf("") }
-    var country by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
+    val loggedInUser by userViewModel.loggedInUser.observeAsState(initial = null)
+    val username = loggedInUser?.username
+    val emailAddress = loggedInUser?.email
+
+    // --- REMOVED THIS LINE ---
+    // LaunchedEffect(username) {
+    //     username?.let { profileViewModel.loadProfile(it) }
+    // }
+    // The ProfileViewModel now receives updates via setLoggedInUsername from DashboardMainScreen
+
+    val profile by profileViewModel.profile.observeAsState()
+
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var bio by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Load profile data ke form
-    LaunchedEffect(profile) {
+    LaunchedEffect(profile) { // Only react to profile changes
         profile?.let {
-            name = it.name
-            dob = it.dateOfBirth
-            region = it.region
-            country = it.country
-            phone = it.mobile
+            firstName = it.firstName
+            lastName = it.lastName
+            bio = it.bio
+            title = it.title
             imageUri = it.photoUri?.let(Uri::parse)
         }
     }
 
-    // Fungsi buat bikin URI kosong tempat menyimpan gambar dari kamera
     fun createImageUri(context: Context): Uri? {
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, "profile_image_${System.currentTimeMillis()}.jpg")
@@ -71,23 +85,24 @@ fun ProfileScreen(navController: NavHostController, viewModel: ProfileViewModel 
 
     var tempCameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Launcher untuk ambil foto kamera
     val takePictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
             imageUri = tempCameraImageUri
+            tempCameraImageUri?.let { profileViewModel.updatePhotoUri(it.toString()) }
         }
     }
 
-    // Launcher untuk pilih file dari galeri
-    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        imageUri = uri
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            imageUri = uri
+            profileViewModel.updatePhotoUri(uri.toString())
+        }
     }
 
-    // Runtime permission
     val requiredPermissions = remember {
         mutableStateListOf<String>().apply {
             add(Manifest.permission.CAMERA)
-            if (Build.VERSION.SDK_INT < 33) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.READ_EXTERNAL_STORAGE)
             } else {
                 add(Manifest.permission.READ_MEDIA_IMAGES)
@@ -95,12 +110,12 @@ fun ProfileScreen(navController: NavHostController, viewModel: ProfileViewModel 
         }
     }
 
-    val permissionsLauncher = rememberLauncherForActivityResult(RequestMultiplePermissions()) { results ->
-        // Jika semua permission granted, lanjut
+    val permissionsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
         val allGranted = results.all { it.value }
         if (!allGranted) {
-            // Handle jika ada yang tidak granted
-            // Bisa tampilkan dialog jika ingin
+            // Handle scenario where permissions are not granted, e.g., show a Toast or SnackBar
         }
     }
 
@@ -113,20 +128,17 @@ fun ProfileScreen(navController: NavHostController, viewModel: ProfileViewModel 
         }
     }
 
+    // Create a scroll state for the Column
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(16.dp)
+            .verticalScroll(scrollState), // Apply verticalScroll here
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            "Edit Profil",
-            style = MaterialTheme.typography.headlineSmall,
-            color = Color(0xFFDE5C9D)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
+        // Profile Image
         if (imageUri != null) {
             AsyncImage(
                 model = imageUri,
@@ -134,7 +146,7 @@ fun ProfileScreen(navController: NavHostController, viewModel: ProfileViewModel 
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
-                    .border(2.dp, Color.Gray, CircleShape),
+                    .border(2.dp, Color(0xFFDE5C9D), CircleShape),
                 contentScale = ContentScale.Crop
             )
         } else {
@@ -144,102 +156,115 @@ fun ProfileScreen(navController: NavHostController, viewModel: ProfileViewModel 
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
-                    .border(2.dp, Color.Gray, CircleShape),
-                tint = Color.Gray
+                    .border(2.dp, Color(0xFFDE5C9D), CircleShape),
+                tint = Color(0xFFDE5C9D)
             )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Row {
-            Button(onClick = {
-                tempCameraImageUri = createImageUri(context)
-                tempCameraImageUri?.let { takePictureLauncher.launch(it) }
-            }) {
+        // Button Row for photo
+        Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = {
+                    tempCameraImageUri = createImageUri(context)
+                    tempCameraImageUri?.let { takePictureLauncher.launch(it) }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDE5C9D)),
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Take Photo")
             }
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            Button(onClick = {
-                galleryLauncher.launch("image/*")
-            }) {
+            Button(
+                onClick = { galleryLauncher.launch("image/*") },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDE5C9D)),
+                modifier = Modifier.weight(1f)
+            ) {
                 Text("Upload File")
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Username") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = dob,
-            onValueChange = { dob = it },
-            label = { Text("Date of Birth") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = region,
-            onValueChange = { region = it },
-            label = { Text("Region") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = country,
-            onValueChange = { country = it },
-            label = { Text("Country") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = phone,
-            onValueChange = { phone = it },
-            label = { Text("Mobile") },
+        // Input Form for new Profile fields
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
-        )
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFEFEFEF))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                ProfileTextField("Username:", username ?: "Loading...", readOnly = true) {}
+                ProfileTextField("Email Address:", emailAddress ?: "Loading...", readOnly = true) {}
+
+                ProfileTextField("First Name:", firstName) { firstName = it }
+                ProfileTextField("Last Name:", lastName) { lastName = it }
+                ProfileTextField("Title:", title) { title = it }
+                // For bio, consider using maxLines = Int.MAX_VALUE and minLines for multiline input
+                ProfileTextField("Bio:", bio, singleLine = false) { bio = it } // Allow multi-line for bio
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Button(
-                onClick = {
-                    viewModel.deleteProfile()
-                    navController.popBackStack()
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDA4D58))
-            ) {
-                Text("Delete")
-            }
-
-            Button(
-                onClick = {
-                    viewModel.saveProfile(
-                        Profile(
-                            name = name,
-                            dateOfBirth = dob,
-                            region = region,
-                            country = country,
-                            mobile = phone,
-                            photoUri = imageUri?.toString()
+        // Save Button
+        Button(
+            onClick = {
+                username?.let { usr ->
+                    emailAddress?.let { email ->
+                        profileViewModel.saveProfile(
+                            Profile(
+                                username = usr,
+                                firstName = firstName,
+                                lastName = lastName,
+                                emailAddress = email,
+                                photoUri = imageUri?.toString(),
+                                bio = bio,
+                                title = title
+                            )
                         )
-                    )
-                    navController.popBackStack()
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-            ) {
-                Text("Save Changes")
-            }
+                        // No need to call loadProfile here; the ProfileViewModel is reactive
+                        // to username changes which are handled by DashboardMainScreen.
+                        // If you want immediate UI update after save, observe 'profile' LiveData.
+                        navController.popBackStack() // Navigate back after saving
+                    } ?: run {
+                        // Handle case where email is null (e.g., show a SnackBar)
+                        Log.e("ProfileScreen", "Email address is null when trying to save profile.")
+                    }
+                } ?: run {
+                    // Handle case where username is null (e.g., navigate back to login or show an error)
+                    Log.e("ProfileScreen", "Username is null when trying to save profile.")
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDE5C9D)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Save Changes")
         }
+        // Add some padding at the bottom so the last elements aren't cut off by the navigation bar or system gestures
+        Spacer(modifier = Modifier.height(32.dp))
     }
+}
+
+@Composable
+fun ProfileTextField(
+    label: String,
+    value: String,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    readOnly: Boolean = false,
+    singleLine: Boolean = true,
+    onChange: (String) -> Unit
+) {
+    Text(label)
+    TextField(
+        value = value,
+        onValueChange = onChange,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        singleLine = singleLine,
+        readOnly = readOnly
+    )
 }

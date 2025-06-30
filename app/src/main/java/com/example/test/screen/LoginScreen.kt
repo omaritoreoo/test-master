@@ -6,31 +6,42 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.* // Pastikan ini diimpor
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.test.R
-import com.example.test.util.UserDataStore
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.test.viewmodel.UserViewModel
+import kotlinx.coroutines.launch // Penting: Tambahkan ini untuk CoroutineScope
 
 @Composable
-fun LoginScreen(navController: NavHostController) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf("") }
+fun LoginScreen(navController: NavHostController, userViewModel: UserViewModel = viewModel()) {
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var errorMessage by rememberSaveable { mutableStateOf("") }
+    var passwordVisibility by rememberSaveable { mutableStateOf(false) }
+
+    // Hapus baris ini: val userFromDb by userViewModel.getUserByEmail(email).observeAsState(initial = null)
+    // Kita tidak lagi mengamati userFromDb di sini, melainkan memanggil fungsi loginUser.
+
+    val scope = rememberCoroutineScope() // Digunakan untuk meluncurkan coroutine
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFFF1F8)) // Background bawah putih
+            .background(Color(0xFFFFF1F8))
     ) {
-
+        // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -39,7 +50,7 @@ fun LoginScreen(navController: NavHostController) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Image(
-                painter = painterResource(id = R.drawable.logo), // Bisa diganti dengan ikon bulat pink jika berbeda
+                painter = painterResource(id = R.drawable.logo),
                 contentDescription = "Logo",
                 modifier = Modifier.size(28.dp)
             )
@@ -52,12 +63,12 @@ fun LoginScreen(navController: NavHostController) {
             )
         }
 
-        // Bagian atas - Header + Form
+        // Form
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .background(Color(0xFFFADAF1)) // Latar form pink muda
+                .background(Color(0xFFFADAF1))
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.Center
         ) {
@@ -71,7 +82,8 @@ fun LoginScreen(navController: NavHostController) {
                 value = email,
                 onValueChange = { email = it },
                 label = { Text("Email Address") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -80,9 +92,16 @@ fun LoginScreen(navController: NavHostController) {
                 onValueChange = { password = it },
                 label = { Text("Password") },
                 modifier = Modifier.fillMaxWidth(),
+                visualTransformation = if (passwordVisibility) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
-                    Icon(Icons.Default.Visibility, contentDescription = "Toggle Password")
-                }
+                    val image = if (passwordVisibility)
+                        Icons.Filled.Visibility
+                    else Icons.Filled.VisibilityOff
+                    IconButton(onClick = { passwordVisibility = !passwordVisibility }) {
+                        Icon(imageVector = image, contentDescription = "Toggle password visibility")
+                    }
+                },
+                singleLine = true
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -92,7 +111,7 @@ fun LoginScreen(navController: NavHostController) {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Checkbox(
-                    checked = false,
+                    checked = false, // You might want to implement remember me logic later
                     onCheckedChange = {}
                 )
                 Text("Remember Me", modifier = Modifier.padding(end = 16.dp))
@@ -104,12 +123,23 @@ fun LoginScreen(navController: NavHostController) {
 
             Button(
                 onClick = {
-                    if (email == UserDataStore.email && password == UserDataStore.password) {
-                        navController.navigate("dashboard_main") {
-                            popUpTo("login") { inclusive = true }
-                        }
+                    if (email.isBlank() || password.isBlank()) {
+                        errorMessage = "Please enter both email and password."
                     } else {
-                        errorMessage = "Invalid email or password."
+                        // Memanggil fungsi loginUser dari ViewModel
+                        scope.launch {
+                            val loggedInUser = userViewModel.loginUser(email, password)
+                            if (loggedInUser != null) {
+                                // Login berhasil
+                                errorMessage = "" // Hapus pesan error sebelumnya
+                                navController.navigate("landing") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            } else {
+                                // Login gagal
+                                errorMessage = "Invalid email or password."
+                            }
+                        }
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF7AC2)),
@@ -149,7 +179,7 @@ fun LoginScreen(navController: NavHostController) {
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Bagian bawah - Maskot
+        // Footer
         Box(
             modifier = Modifier
                 .fillMaxWidth()
